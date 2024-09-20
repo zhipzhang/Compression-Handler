@@ -22,7 +22,7 @@ This library provides a set of handlers for working with compressed files, inclu
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/compression-handlers.git
+   git clone https://github.com/zhipzhang/compression-handlers.git
    cd compression-handlers
    ```
 
