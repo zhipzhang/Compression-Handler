@@ -1,3 +1,0 @@
-[submodule "external/xrootd"]
-	path = external/xrootd
-	url = https://github.com/xrootd/xrootd

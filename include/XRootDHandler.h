@@ -18,6 +18,7 @@ class XRootDFileHandler : public FileHandler {
 
     size_t tell() override { return static_cast<size_t>(current_offset_); }
     bool IsEnd() override;
+    void close() override;
 
    private:
     void GetfileSize_();

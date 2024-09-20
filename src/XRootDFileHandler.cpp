@@ -16,6 +16,9 @@ XRootDFileHandler::XRootDFileHandler(const std::string& filepath,
         GetfileSize_();
     } else {
         flag = file_->Open(filepath, XrdCl::OpenFlags::Write);
+        if (!flag.IsOK()) {
+            throw std::runtime_error("Failed to open Xrootd file !");
+        }
         isread_ = false;
         iswrite_ = true;
     }
@@ -55,6 +58,12 @@ void XRootDFileHandler::seek(size_t offset, int whence) {
             break;
         default:
             throw std::invalid_argument("Invalid Argument for whence");
+    }
+}
+void XRootDFileHandler::close() {
+    auto status = file_->Close();
+    if (!status.IsOK()) {
+        throw std::runtime_error("Failed to close Xrootd file !");
     }
 }
 bool XRootDFileHandler::IsEnd() {

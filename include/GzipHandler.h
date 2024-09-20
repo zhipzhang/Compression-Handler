@@ -12,13 +12,16 @@ class GzipHandler : public CompressionHandler {
     GzipHandler(FileHandler& file_handler);
     ~GzipHandler();
     size_t read(unsigned char* buffer, size_t size) override;
-    size_t write(unsigned char* buffer, size_t size) override;
+    void close() override;
 
    private:
-    int _write() override;
+    int WriteToFile(bool is_last = false) override;
     /* can be used for compress or decompress */
     z_stream* strm_;
     /* the unprocessed compressed data : needed for gzip handler*/
-    std::vector<char> unprocessedData_;
-    size_t unprocessedSize_ = 0;
+    std::vector<char> unprocessed_data_;
+    size_t unprocessed_size_ = 0;
+
+    bool is_closed_ = false;
+    void cleanup();
 };

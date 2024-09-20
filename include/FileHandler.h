@@ -26,6 +26,7 @@ class FileHandler {
     //! @param whence         Some situations you can set: SEEK_CUR and SEEK_SET
     //------------------------------------------------------------------------
     virtual void seek(size_t offset, int whence) = 0;
+    virtual void close() = 0;
     virtual size_t tell() = 0;
     bool IsRead() { return isread_; };
     bool IsWrite() { return iswrite_; };

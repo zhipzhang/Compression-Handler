@@ -1,11 +1,12 @@
 #include "ZstdHandler.h"
 #include <cstddef>
 #include <cstring>
+#include <stdexcept>
 #include "CompressionHandler.h"
 #include "FileHandler.h"
 ZstdHandler::ZstdHandler(FileHandler& file_handler)
     : CompressionHandler(file_handler) {
-    if (fileHandler_.IsRead()) {
+    if (file_handler_.IsRead()) {
         dctx_ = ZSTD_createDStream();
         if (dctx_ == nullptr) {
             throw std::runtime_error("Failed to create ZSTD_DStream");
@@ -14,29 +15,18 @@ ZstdHandler::ZstdHandler(FileHandler& file_handler)
         if (ZSTD_isError(initResult)) {
             throw "";
         }
-        leftoverBuffer_.resize(ZSTD_DStreamOutSize());
+        leftover_buffer_.resize(ZSTD_DStreamOutSize());
 
     } else {
         cctx_ = ZSTD_createCStream();
-        writeBuffer_.resize(ZSTD_DStreamOutSize());
+        write_buffer_.resize(ZSTD_DStreamOutSize());
     }
 }
 
-size_t ZstdHandler::write(unsigned char* buffer, size_t size) {
-    size_t totalWrite = 0;
-    size_t toWrite = std::min(size, writeBuffer_.size() - writePos_);
-    std::memcpy(writeBuffer_.data() + writePos_, buffer, toWrite);
-    if (toWrite < size) {
-        _write();
-        writePos_ = 0;
-        toWrite += write(buffer + toWrite, size - toWrite);
-    }
-    return toWrite;
-}
 
-int ZstdHandler::_write() {
+int ZstdHandler::WriteToFile(bool is_last) {
     std::vector<char> outputBuffer(ZSTD_CStreamOutSize());
-    ZSTD_inBuffer inBuffer = {writeBuffer_.data(), writePos_, 0};
+    ZSTD_inBuffer inBuffer = {write_buffer_.data(), write_pos_, 0};
     ZSTD_outBuffer outBuffer = {outputBuffer.data(), outputBuffer.size(), 0};
 
     while (inBuffer.pos < inBuffer.size) {
@@ -44,7 +34,7 @@ int ZstdHandler::_write() {
         if (ZSTD_isError(ret)) {
             return -1;
         }
-        fileHandler_.write(
+        file_handler_.write(
             reinterpret_cast<unsigned char*>(outputBuffer.data()),
             outBuffer.pos);
         outBuffer.pos = 0;
@@ -52,13 +42,13 @@ int ZstdHandler::_write() {
     /*
    * The final _write(), we have to call end_Stream
    */
-    if (writePos_ < writeBuffer_.size()) {
+    if (write_pos_ < write_buffer_.size()) {
         size_t const endRet = ZSTD_endStream(cctx_, &outBuffer);
         if (ZSTD_isError(endRet)) {
             return -1;
             // handle the error
         }
-        fileHandler_.write(
+        file_handler_.write(
             reinterpret_cast<unsigned char*>(outputBuffer.data()),
             outBuffer.pos);  // In case we still have data
     }
@@ -66,12 +56,12 @@ int ZstdHandler::_write() {
 }
 size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     size_t totalRead = 0;
-    if (leftoverSize_ > 0) {
-        size_t toCopy = std::min(leftoverSize_, size);
-        std::memcmp(buffer, leftoverBuffer_.data() + leftoverPos_, toCopy);
+    if (leftover_size_ > 0) {
+        size_t toCopy = std::min(leftover_size_, size);
+        std::memcmp(buffer, leftover_buffer_.data() + leftover_pos_, toCopy);
         totalRead += toCopy;
-        leftoverPos_ += toCopy;
-        leftoverSize_ -= toCopy;
+        leftover_pos_ += toCopy;
+        leftover_size_ -= toCopy;
         if (totalRead == size) {
             return totalRead;
         }
@@ -82,7 +72,7 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     ZSTD_outBuffer outBuffer = {outputBuffer.data(), outputBuffer.size(), 0};
     while (totalRead < size) {
         if (inBuffer.pos == inBuffer.size) {
-            inBuffer.size = fileHandler_.read(
+            inBuffer.size = file_handler_.read(
                 reinterpret_cast<unsigned char*>(inputBuffer.data()),
                 inputBuffer.size());
             inBuffer.pos = 0;
@@ -98,12 +88,12 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
         std::memcpy(buffer + totalRead, outputBuffer.data(), toCopy);
         totalRead += toCopy;
         if (outBuffer.pos > toCopy) {
-            leftoverSize_ = outBuffer.pos - toCopy;
-            std::memcpy(leftoverBuffer_.data(), outputBuffer.data() + toCopy,
-                        leftoverSize_);
-            leftoverPos_ = 0;
+            leftover_size_ = outBuffer.pos - toCopy;
+            std::memcpy(leftover_buffer_.data(), outputBuffer.data() + toCopy,
+                        leftover_size_);
+            leftover_pos_ = 0;
         } else {
-            leftoverSize_ = 0;
+            leftover_size_ = 0;
         }
         if (ret == 0 && inBuffer.pos == inBuffer.size) {
             break;
@@ -111,10 +101,23 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     }
     return totalRead;
 }
+
+
 ZstdHandler::~ZstdHandler() {
-    if (writePos_ > 0) {
-        _write();
+    close();
+}
+void ZstdHandler::close() {
+    if (is_closed_) {
+        return;
     }
-    ZSTD_freeDStream(dctx_);
-    ZSTD_freeCStream(cctx_);
+    if (file_handler_.IsRead()) {
+        ZSTD_freeDStream(dctx_);
+    } else {
+        if (write_pos_ > 0) {
+            WriteToFile(true);
+        }
+        ZSTD_freeCStream(cctx_);
+    }
+    file_handler_.close();
+    is_closed_ = true;
 }
