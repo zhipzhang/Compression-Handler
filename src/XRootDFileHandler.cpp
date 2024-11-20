@@ -75,8 +75,8 @@ bool XRootDFileHandler::IsEnd() {
 }
 void XRootDFileHandler::GetfileSize_() {
     XrdCl::XRootDStatus status;
-    XrdCl::StatInfo* statinfo = nullptr;
-    status = file_->Stat(false, statinfo);
+    XrdCl::StatInfo* statinfo ;
+    status = file_->Stat(true, statinfo);
     if (!status.IsOK() || !statinfo) {
         ;
     }

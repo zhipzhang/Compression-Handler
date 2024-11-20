@@ -1,29 +1,35 @@
+# Set System paths for ordinary linux systems
+set(SYSTEM_LIBRARY_PATHS /usr/lib/x86_64-linux-gnu /usr/lib /usr/local/lib)
+
 # Find required libraries
 find_package(ZLIB REQUIRED)
 if(NOT ZLIB_FOUND)
     message(FATAL_ERROR "ZLIB library not found. Please install ZLIB and try again.")
 endif()
 # Find ZSTD library
-find_library(ZSTD_LIBRARY
-    NAMES zstd
-    PATHS /lib/x86_64-linux-gnu
-    NO_DEFAULT_PATH
-)
-
-if(NOT ZSTD_LIBRARY)
-    message(FATAL_ERROR "ZSTD library not found. Please ensure libzstd is installed.")
+find_package(ZSTD QUIET)
+if(NOT ZSTD_FOUND)
+    message(WARNING "ZSTD library not found. Try to find it in the system paths.")
+    find_library(ZSTD_LIBRARY NAMES zstd HINTS ${SYSTEM_LIBRARY_PATHS})
+    if(ZSTD_LIBRARY)
+        set(ZSTD_FOUND TRUE)
+        set(ZSTD_LIBRARIES ${ZSTD_LIBRARY})
+    endif()
+    if(NOT ZSTD_FOUND)
+        message(STATUS "ZSTD library not found. Continuing without ZSTD support.")
+        return()
+    endif()
 endif()
-
-# Set ZSTD_INCLUDE_DIRS and ZSTD_LIBRARIES
-set(ZSTD_INCLUDE_DIRS "/usr/include")  # Assuming the default include path
-set(ZSTD_LIBRARIES ${ZSTD_LIBRARY})
-
-message(STATUS "Found ZSTD: ${ZSTD_LIBRARY}")
-message(STATUS "ZSTD include directory: ${ZSTD_INCLUDE_DIRS}")
 
 find_package(XRootD REQUIRED)
 if(NOT XROOTD_FOUND)
-    message(FATAL_ERROR "XRootD library not found. Please install XRootD and try again.")
+    if(DEFINED ENV{XROOTD_DIR})
+        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} $ENV{XROOTD_DIR})
+        find_package(XRootD REQUIRED)
+    endif()
+    if(NOT XROOTD_FOUND)
+        message(FATAL_ERROR "XRootD library not found. Please install XRootD or set XROOTD_DIR environment variable and try again.")
+    endif()
 endif()
 
 # Set source files
@@ -40,8 +46,6 @@ message(STATUS "XRootD include directories: ${XROOTD_INCLUDE_DIRS}")
 
 # Include directories
 target_include_directories(compression_handlers PUBLIC
-    ${ZLIB_INCLUDE_DIRS}
-    ${ZSTD_INCLUDE_DIRS}
     ${XROOTD_INCLUDE_DIRS}
 )
 
@@ -63,4 +67,10 @@ install(TARGETS compression_handlers
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
+)
+
+# Install the header files
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/include/
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
 )
