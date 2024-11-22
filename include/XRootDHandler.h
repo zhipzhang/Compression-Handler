@@ -23,6 +23,6 @@ class XRootDFileHandler : public FileHandler {
    private:
     void GetfileSize_();
     std::shared_ptr<XrdCl::File> file_;
-    uint64_t current_offset_;
-    uint64_t fileSize_;
+    uint64_t current_offset_ = 0;
+    uint64_t fileSize_ = 0;
 };

@@ -4,6 +4,7 @@
 #include "XRootDHandler.h"
 #include "XrdCl/XrdClFileSystem.hh"
 #include "XrdCl/XrdClXRootDResponses.hh"
+#include <XrdCl/XrdClLog.hh>
 
 XRootDFileHandler::XRootDFileHandler(const std::string& filepath,
                                      const char mode) {
@@ -15,7 +16,7 @@ XRootDFileHandler::XRootDFileHandler(const std::string& filepath,
         iswrite_ = false;
         GetfileSize_();
     } else {
-        flag = file_->Open(filepath, XrdCl::OpenFlags::Write);
+        flag = file_->Open(filepath, XrdCl::OpenFlags::Delete | XrdCl::OpenFlags::Write |XrdCl::OpenFlags::MakePath);
         if (!flag.IsOK()) {
             throw std::runtime_error("Failed to open Xrootd file !");
         }
@@ -31,8 +32,11 @@ size_t XRootDFileHandler::write(unsigned char* buffer, size_t size) {
     XrdCl::XRootDStatus status;
     uint32_t bytesWrite;
     status = file_->Write(current_offset_, size, static_cast<void*>(buffer));
-    if (!status.IsOK()) {}
-    current_offset_ += bytesWrite;
+    if (!status.IsOK()) {
+        throw std::runtime_error("Failed to write Xrootd file !");
+    }
+    current_offset_ += size;
+    bytesWrite = size;
     return static_cast<size_t>(bytesWrite);
 }
 size_t XRootDFileHandler::read(unsigned char* buffer, size_t size) {
