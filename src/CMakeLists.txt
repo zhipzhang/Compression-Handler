@@ -21,15 +21,18 @@ if(NOT ZSTD_FOUND)
     endif()
 endif()
 
-find_package(XRootD REQUIRED)
+find_package(XRootD COMPONENTS CLIENT QUIET)
 if(NOT XROOTD_FOUND)
-    if(DEFINED ENV{XROOTD_DIR})
-        set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} $ENV{XROOTD_DIR})
-        find_package(XRootD REQUIRED)
+    message(WARNING "XRootD library not found. Try to find it in the system paths. For ihep platfrom, xrootd is placed in old_xrootd directory ")
+    find_library(XrdCl_LIBRARY NAMES XrdCl HINTS  /cvmfs/lhaaso.ihep.ac.cn/anysw/slc5_ia64_gcc73/external/lib64/olds_xrootd)
+    if(XrdCl_LIBRARY)
+        set(XROOTD_FOUND TRUE)
+        set(XROOTD_INCLUDE_DIRS /cvmfs/lhaaso.ihep.ac.cn/anysw/slc5_ia64_gcc73/external/include/xrootd)
     endif()
-    if(NOT XROOTD_FOUND)
-        message(FATAL_ERROR "XRootD library not found. Please install XRootD or set XROOTD_DIR environment variable and try again.")
-    endif()
+endif()
+
+if(NOT XROOTD_FOUND)
+    message(FATAL_ERROR "XRootD library not found. Please install XRootD or set XROOTD_DIR environment variable and try again.")
 endif()
 
 # Set source files
@@ -60,12 +63,15 @@ target_link_libraries(compression_handlers PUBLIC
 set_target_properties(compression_handlers PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
+    INSTALL_RPATH_USE_LINK_PATH TRUE
 )
 
 # Install the library
 install(TARGETS compression_handlers
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib64
+    ARCHIVE DESTINATION lib64
     RUNTIME DESTINATION bin
 )
 
