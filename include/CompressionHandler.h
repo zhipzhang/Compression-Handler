@@ -23,7 +23,7 @@ class CompressionHandler {
     FileHandler& file_handler_;
     explicit CompressionHandler(FileHandler& file_handler)
         : file_handler_(file_handler) {
-            int buffer_size_ = 4096;
+            int buffer_size_ = 4096 * 1024; // 4MB
             if (std::getenv("BUFFER_SIZE")) {
                 buffer_size_ = std::atoi(std::getenv("BUFFER_SIZE"));
             }
