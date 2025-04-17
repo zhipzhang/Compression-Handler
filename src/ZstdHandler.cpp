@@ -1,5 +1,6 @@
 #include "ZstdHandler.h"
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include "CompressionHandler.h"
@@ -13,13 +14,13 @@ ZstdHandler::ZstdHandler(FileHandler& file_handler)
         }
         size_t const initResult = ZSTD_initDStream(dctx_);
         if (ZSTD_isError(initResult)) {
-            throw "";
+            throw std::runtime_error("Failed to initialize ZSTD_DStream");
         }
         leftover_buffer_.resize(ZSTD_DStreamOutSize());
-
+        input_buffer_ = std::vector<char>(ZSTD_DStreamInSize(), 0);
     } else {
         cctx_ = ZSTD_createCStream();
-        write_buffer_.resize(ZSTD_DStreamOutSize());
+        write_buffer_.resize(ZSTD_CStreamOutSize());
     }
 }
 
@@ -58,7 +59,7 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     size_t totalRead = 0;
     if (leftover_size_ > 0) {
         size_t toCopy = std::min(leftover_size_, size);
-        std::memcmp(buffer, leftover_buffer_.data() + leftover_pos_, toCopy);
+        std::memcpy(buffer, leftover_buffer_.data() + leftover_pos_, toCopy);
         totalRead += toCopy;
         leftover_pos_ += toCopy;
         leftover_size_ -= toCopy;
@@ -66,30 +67,49 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
             return totalRead;
         }
     }
-    std::vector<char> inputBuffer(ZSTD_DStreamInSize());
-    std::vector<char> outputBuffer(ZSTD_DStreamOutSize());
-    ZSTD_inBuffer inBuffer = {inputBuffer.data(), 0, 0};
-    ZSTD_outBuffer outBuffer = {outputBuffer.data(), outputBuffer.size(), 0};
+    // decompressed_buffer_ is used up, we need to read more data or decompress more data.
+    ZSTD_inBuffer inBuffer;
+
+    // Make sure the inBuffer have data.
+    if(input_pos_ < input_size_) {
+        inBuffer = {input_buffer_.data(), input_size_, input_pos_};
+    }
+    else
+    {
+        read_compressed_from_file();
+        inBuffer = {input_buffer_.data(), input_size_, input_pos_};
+    }
+
+    // Save the decompressed data to the outBuffer firstly, it have leftover data copied to the leftover_buffer_.
+    std::vector<char> output_buffer(ZSTD_DStreamOutSize());
+    ZSTD_outBuffer outBuffer = {output_buffer.data(), output_buffer.size(), 0};
     while (totalRead < size) {
+
+        // If the inBuffer is used up, read more data from the file.
         if (inBuffer.pos == inBuffer.size) {
-            inBuffer.size = file_handler_.read(
-                reinterpret_cast<unsigned char*>(inputBuffer.data()),
-                inputBuffer.size());
-            inBuffer.pos = 0;
-            if (inBuffer.size == 0) {
-                break;
-            }
+            read_compressed_from_file();
+            inBuffer = {input_buffer_.data(), input_size_, input_pos_};
         }
+        // Each time before decompress, we need to reset the outBuffer.
+        outBuffer.pos = 0;
+
         size_t const ret = ZSTD_decompressStream(dctx_, &outBuffer, &inBuffer);
         if (ZSTD_isError(ret)) {
-            throw "";
+            throw std::runtime_error("ZSTD_decompressStream failed: " + std::string(ZSTD_getErrorName(ret)));
         }
+
+        // Update the input buffer position.
+        input_pos_ = inBuffer.pos;
+
+        // Copy the decompressed data to the output buffer.
         size_t toCopy = std::min(outBuffer.pos, size - totalRead);
-        std::memcpy(buffer + totalRead, outputBuffer.data(), toCopy);
+        std::memcpy(buffer + totalRead, outBuffer.dst, toCopy);
         totalRead += toCopy;
+
+        // If there is leftover data, copy it to the leftover buffer.
         if (outBuffer.pos > toCopy) {
             leftover_size_ = outBuffer.pos - toCopy;
-            std::memcpy(leftover_buffer_.data(), outputBuffer.data() + toCopy,
+            std::memcpy(leftover_buffer_.data(), (unsigned char*)outBuffer.dst + toCopy,
                         leftover_size_);
             leftover_pos_ = 0;
         } else {
@@ -102,6 +122,16 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     return totalRead;
 }
 
+
+void ZstdHandler::read_compressed_from_file() {
+    int read_bytes = file_handler_.read(reinterpret_cast<unsigned char*>(input_buffer_.data()), input_buffer_.size());
+    input_size_ = read_bytes;
+    input_pos_ = 0;
+    if(read_bytes < input_buffer_.size()) {
+        // We have reached the end of the file.
+        IsReadEnd = true;
+    }
+}
 
 ZstdHandler::~ZstdHandler() {
     close();

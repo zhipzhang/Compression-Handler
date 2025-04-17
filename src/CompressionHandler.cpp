@@ -3,12 +3,10 @@
 #include <stdexcept>
 size_t CompressionHandler::write(unsigned char* buffer , size_t size)
 {
-        size_t totalWrite = 0;
+    size_t totalWrite = 0;
     while (totalWrite < size) {
-        size_t toWrite =
-            std::min(size - totalWrite, write_buffer_.size() - write_pos_);
-        std::memcpy(write_buffer_.data() + write_pos_, buffer + totalWrite,
-                    toWrite);
+        size_t toWrite = std::min(size - totalWrite, write_buffer_.size() - write_pos_);
+        std::memcpy(write_buffer_.data() + write_pos_, buffer + totalWrite, toWrite);
         write_pos_ += toWrite;
         totalWrite += toWrite;
 

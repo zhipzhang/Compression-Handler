@@ -66,24 +66,23 @@ size_t GzipHandler::read(unsigned char* buffer, size_t size) {
             return totalRead;
         }
     }
-    // reset the leftover buffer.
-    leftover_pos_ = 0;
-    leftover_size_ = 0;
-    std::vector<char> inputBuffer_(4096, 0);
+
     std::vector<char> outputBuffer_(4096, 0);
     bool continueInflating = true;
     while (totalRead < size && continueInflating) {
-        std::memcpy(inputBuffer_.data(), unprocessed_data_.data(),
+        std::memcpy(input_buffer_.data(), unprocessed_data_.data(),
                     unprocessed_size_);
         size_t bytesread = file_handler_.read(
-            reinterpret_cast<unsigned char*>(inputBuffer_.data()) +
+            reinterpret_cast<unsigned char*>(input_buffer_.data()) +
                 unprocessed_size_,
-            inputBuffer_.size() - unprocessed_size_);
-        if (bytesread < inputBuffer_.size() - unprocessed_size_) {
+            input_buffer_.size() - unprocessed_size_);
+        
+        // End of the compressed file.
+        if (bytesread < input_buffer_.size() - unprocessed_size_) {
             continueInflating = false;
         }
         strm_->avail_in = bytesread + unprocessed_size_;
-        strm_->next_in = reinterpret_cast<Bytef*>(inputBuffer_.data());
+        strm_->next_in = reinterpret_cast<Bytef*>(input_buffer_.data());
         strm_->avail_out = size - totalRead;
         strm_->next_out = reinterpret_cast<Bytef*>(buffer + totalRead);
         int ret = inflate(strm_, Z_NO_FLUSH);

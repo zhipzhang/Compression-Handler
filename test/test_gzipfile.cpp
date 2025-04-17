@@ -1,25 +1,27 @@
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
+#include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 #include "LocalFileHandler.h"
 #include "GzipHandler.h"
 
-class LocalCompressGzipTest : public ::testing::Test {
+class GzipHandlerTest {
 protected:
-    void SetUp() override {
-        // Create a temporary file for testing
+    void SetUp() {
         tmpFileName = "test_gzip_file.gz";
     }
 
-    void TearDown() override {
-        // Remove the temporary file
-        //std::remove(tmpFileName.c_str());
+    void TearDown() {
+        // std::remove(tmpFileName.c_str());
     }
 
     std::string tmpFileName;
 };
 
-TEST_F(LocalCompressGzipTest, WriteAndReadTest) {
+TEST_CASE_FIXTURE(GzipHandlerTest, "WriteAndReadTest") {
+    SetUp();
     const std::string testData = "Hello, Gzip compression!";
     
     // Write test
@@ -27,11 +29,10 @@ TEST_F(LocalCompressGzipTest, WriteAndReadTest) {
         LocalFileHandler fileHandler(tmpFileName, 'w');
         GzipHandler gzipHandler(fileHandler);
         
-        unsigned char* writeBuffer = reinterpret_cast<unsigned char*>(const_cast<char*>(testData.c_str()));
-        size_t bytesWritten = gzipHandler.write(writeBuffer, testData.length());
-        printf("bytesWritten: %zu\n", bytesWritten);
-        EXPECT_EQ(bytesWritten, testData.length());
+        size_t bytesWritten = gzipHandler.write(reinterpret_cast<unsigned char*>(const_cast<char*>(testData.c_str())), testData.length());
         gzipHandler.close();
+        
+        CHECK_EQ(bytesWritten, testData.length());
     }
 
     // Read test
@@ -42,16 +43,19 @@ TEST_F(LocalCompressGzipTest, WriteAndReadTest) {
         std::vector<unsigned char> readBuffer(100, 0);
         size_t bytesRead = gzipHandler.read(readBuffer.data(), readBuffer.size());
 
-        EXPECT_EQ(bytesRead, testData.length());
-        EXPECT_EQ(std::string(reinterpret_cast<char*>(readBuffer.data()), bytesRead), testData);
+        CHECK_EQ(bytesRead, testData.length());
+        CHECK_EQ(std::string(reinterpret_cast<char*>(readBuffer.data()), bytesRead), testData);
     }
+    TearDown();
 }
 
-TEST_F(LocalCompressGzipTest, LargeDataTest) {
+TEST_CASE_FIXTURE(GzipHandlerTest, "LargeDataTest") {
+    SetUp();
     const size_t largeDataSize = 1024 * 1024; // 1 MB
-    std::vector<unsigned char> largeData(largeDataSize);
-    for (size_t i = 0; i < largeDataSize; ++i) {
-        largeData[i] = static_cast<unsigned char>(i % 256);
+    const size_t largeDataSizeInBytes = largeDataSize * sizeof(int);
+    std::vector<int> largeData(largeDataSize);
+    for (long long i = 0; i < largeDataSize; ++i) {
+        largeData[i] = static_cast<int>(i % (19999999));
     }
 
     // Write large data
@@ -59,10 +63,10 @@ TEST_F(LocalCompressGzipTest, LargeDataTest) {
         LocalFileHandler fileHandler(tmpFileName, 'w');
         GzipHandler gzipHandler(fileHandler);
         
-        size_t bytesWritten = gzipHandler.write(largeData.data(), largeData.size());
+        size_t bytesWritten = gzipHandler.write(reinterpret_cast<unsigned char*>(largeData.data()), largeDataSizeInBytes);
         gzipHandler.close();
-        printf("bytesWritten: %zu\n", bytesWritten);
-        EXPECT_EQ(bytesWritten, largeData.size());
+        
+        CHECK_EQ(bytesWritten, largeDataSizeInBytes);
     }
 
     // Read and verify large data
@@ -70,15 +74,20 @@ TEST_F(LocalCompressGzipTest, LargeDataTest) {
         LocalFileHandler fileHandler(tmpFileName, 'r');
         GzipHandler gzipHandler(fileHandler);
         
-        std::vector<unsigned char> readBuffer(largeDataSize);
+        std::vector<unsigned char> readBuffer(largeDataSizeInBytes);
         size_t bytesRead = gzipHandler.read(readBuffer.data(), readBuffer.size());
 
-        EXPECT_EQ(bytesRead, largeData.size());
-        EXPECT_EQ(readBuffer, largeData);
+        CHECK_EQ(bytesRead, largeDataSizeInBytes);
+        for(int i = 0; i < largeDataSize; ++i) {
+            int read_value = *reinterpret_cast<int*>(readBuffer.data() + i * sizeof(int));
+            CHECK_EQ(read_value, largeData[i]);
+        }
     }
+    TearDown();
 }
 
-TEST_F(LocalCompressGzipTest, MultipleWritesTest) {
+TEST_CASE_FIXTURE(GzipHandlerTest, "MultipleWritesTest") {
+    SetUp();
     LocalFileHandler fileHandler(tmpFileName, 'w');
     GzipHandler gzipHandler(fileHandler);
 
@@ -90,6 +99,7 @@ TEST_F(LocalCompressGzipTest, MultipleWritesTest) {
     gzipHandler.write(reinterpret_cast<unsigned char*>(const_cast<char*>(data2.c_str())), data2.length());
     gzipHandler.write(reinterpret_cast<unsigned char*>(const_cast<char*>(data3.c_str())), data3.length());
     gzipHandler.close(); 
+    
     // Read and verify
     LocalFileHandler readFileHandler(tmpFileName, 'r');
     GzipHandler readGzipHandler(readFileHandler);
@@ -105,6 +115,7 @@ TEST_F(LocalCompressGzipTest, MultipleWritesTest) {
         totalBytesRead += bytesRead;
     }
 
-    EXPECT_EQ(result, data1 + data2 + data3);
-    EXPECT_EQ(totalBytesRead, data1.length() + data2.length() + data3.length());
+    CHECK_EQ(result, data1 + data2 + data3);
+    CHECK_EQ(totalBytesRead, data1.length() + data2.length() + data3.length());
+    TearDown();
 }

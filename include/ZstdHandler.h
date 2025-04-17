@@ -12,8 +12,10 @@ class ZstdHandler : public CompressionHandler {
     void close() override;
 
    private:
+
+    void read_compressed_from_file();
     bool is_closed_ = false;
     int WriteToFile(bool is_last = false) override;
-    ZSTD_DStream* dctx_;  // decompression context
-    ZSTD_CStream* cctx_;  //
+    ZSTD_DStream* dctx_ = nullptr;  // decompression context
+    ZSTD_CStream* cctx_ = nullptr;  // compression context
 };
