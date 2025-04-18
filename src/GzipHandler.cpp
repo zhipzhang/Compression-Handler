@@ -79,6 +79,7 @@ size_t GzipHandler::read(unsigned char* buffer, size_t size) {
         
         // End of the compressed file.
         if (bytesread < input_buffer_.size() - unprocessed_size_) {
+            IsReadEnd = true;
             continueInflating = false;
         }
         strm_->avail_in = bytesread + unprocessed_size_;
