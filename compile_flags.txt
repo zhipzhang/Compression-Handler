@@ -2,8 +2,8 @@
 c++
 -std=c++20
 -I 
-/home/zhipz/Projects/RemoteFH/external/xrootd/src/
+/data/home/zzp/LAST/xrootd/src/
 -I
-/home/zhipz/Projects/RemoteFH/external/gtest/googletest/include
+/data/home/zzp/LAST/Compression-Handler/include
 -I 
 /home/zhipz/Projects/RemoteFH/include 

@@ -19,6 +19,12 @@ class CompressionHandler {
     size_t write(unsigned char* buffer, size_t size);
     virtual void close() = 0;
     virtual int WriteToFile(bool is_last = false) = 0;
+    bool have_leftover() const {
+        return leftover_size_ > 0;
+    }
+    bool have_uncompressed() const {
+        return input_size_ > input_pos_;
+    }
    protected:
     FileHandler& file_handler_;
     explicit CompressionHandler(FileHandler& file_handler)
@@ -27,9 +33,12 @@ class CompressionHandler {
             if (std::getenv("BUFFER_SIZE")) {
                 buffer_size_ = std::atoi(std::getenv("BUFFER_SIZE"));
             }
-            write_buffer_.resize(buffer_size_);
-            input_buffer_.resize(buffer_size_);
-            leftover_buffer_.resize(buffer_size_);
+            if(file_handler_.IsRead()) {
+                input_buffer_.reserve(buffer_size_);
+                leftover_buffer_.reserve(buffer_size_);
+            } else {
+                write_buffer_.reserve(buffer_size_);
+            }
         }
 
     // Handle the leftover decompressed data
@@ -46,3 +55,5 @@ class CompressionHandler {
     std::vector<char> write_buffer_;
     size_t write_pos_ = 0;
 };
+
+

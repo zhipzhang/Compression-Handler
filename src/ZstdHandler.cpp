@@ -85,15 +85,15 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
     ZSTD_outBuffer outBuffer = {output_buffer.data(), output_buffer.size(), 0};
     while (totalRead < size) {
 
-        if(IsReadEnd)
-        {
-            return totalRead;
-        }
 
         // If the inBuffer is used up, read more data from the file.
         if (inBuffer.pos == inBuffer.size) {
             read_compressed_from_file();
             inBuffer = {input_buffer_.data(), input_size_, input_pos_};
+            if(input_size_ == 0)
+            {
+                break;
+            }
         }
         // Each time before decompress, we need to reset the outBuffer.
         outBuffer.pos = 0;
@@ -119,9 +119,6 @@ size_t ZstdHandler::read(unsigned char* buffer, size_t size) {
             leftover_pos_ = 0;
         } else {
             leftover_size_ = 0;
-        }
-        if (ret == 0 && inBuffer.pos == inBuffer.size) {
-            break;
         }
     }
     return totalRead;

@@ -21,6 +21,10 @@ class XRootDFileHandler : public FileHandler {
             iswrite_ = true;
             isread_ = false;
         }
+        if(xrootd_fd == -1)
+        {
+            throw std::runtime_error("Failed to open file");
+        }
     }
 
     size_t write(unsigned char* buffer, size_t size) override {

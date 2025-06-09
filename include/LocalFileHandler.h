@@ -1,9 +1,11 @@
 #pragma once
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstddef>
 #include <string>
 #include <sys/stat.h>
 #include "FileHandler.h"
+#include <stdexcept>
 class LocalFileHandler : public FileHandler {
    public:
     LocalFileHandler(const std::string& filepath, const char mode = 'r') {
@@ -15,6 +17,9 @@ class LocalFileHandler : public FileHandler {
             fd_ = open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
             iswrite_ = true;
             isread_ = false;
+        }
+        if(fd_ == -1) {
+            throw std::runtime_error("Failed to open file");
         }
     }
     size_t read(unsigned char* buffer, size_t size) override {
