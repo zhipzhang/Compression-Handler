@@ -43,7 +43,7 @@ int ZstdHandler::WriteToFile(bool is_last) {
     /*
    * The final _write(), we have to call end_Stream
    */
-    if (write_pos_ < write_buffer_.size()) {
+    if (is_last) {
         size_t const endRet = ZSTD_endStream(cctx_, &outBuffer);
         if (ZSTD_isError(endRet)) {
             return -1;

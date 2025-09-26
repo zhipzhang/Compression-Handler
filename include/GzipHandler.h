@@ -16,6 +16,7 @@ class GzipHandler : public CompressionHandler {
 
    private:
     int WriteToFile(bool is_last = false) override;
+    void handleLeftoverDecompression();
     /* can be used for compress or decompress */
     z_stream* strm_;
     /* the unprocessed compressed data : needed for gzip handler*/
